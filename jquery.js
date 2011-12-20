@@ -2470,7 +2470,7 @@ jQuery.extend({
 
 		// All attributes are lowercase
 		// Grab necessary hook if one is defined
-		if ( notxml ) {
+		if ( notxml && name ) {
 			name = name.toLowerCase();
 			hooks = jQuery.attrHooks[ name ] || ( rboolean.test( name ) ? boolHook : nodeHook );
 		}
