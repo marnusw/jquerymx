@@ -1,0 +1,138 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+            "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="en">
+	<head>
+		<title>view</title>
+		<style>
+			body{
+				font-family: verdana;
+			}
+			.out {
+				border: dashed 1px blue;
+			}
+            .descr {
+                font-size: 0.8em;
+                width: 800px;
+            }
+			h2 {
+				font-weight: bold;
+				font-size : 1em;
+			}
+			h3 {font-size : 0.95em;}
+		</style>
+	</head>
+	<body>
+		<h2>$.View animation and loading view demo</h2>
+        <p class="descr">An object with transition options can be passed to any of the jQuery DOM manipulation
+        functions to allow automated graceful transitions of views when they are add/updated. When data or the
+        view script is deferred a 'loading' view script can be displayed, and out and in animations can be 
+        specified. The transition object takes options as follows:
+        </p>
+        <pre>
+            transitionOpts = {
+                out : 'slideUp', 
+                in_ : 'slideDown', 
+                duration : 400,
+                // these can also have defaults specified on $.View
+                loadView : '//jquery/view/test/animate/loading',
+                loadOpts : {what : 'my first data'},
+                loadAnim : {
+                    out : 'fadeOut', 
+                    in_ : 'fadeIn', 
+                    duration : 200
+                }
+            }</pre>
+        <hr />
+        <p>
+            <button id="reset">Reset</button>
+            <button id="replace">Replace animation</button>
+            <button id="deferred">Replace w/ deferreds</button>
+            <button id="deferred_loading">Deferreds w/ loading view</button>
+        </p>
+        
+		<div id='block1' class='out'></div>
+		<div id='block2_outer'>
+            <div id='block2' class='out'></div>
+        </div>
+
+        <script type='text/javascript' src='../../steal/steal.js'>   
+        </script>
+        <script type='text/javascript'>
+        steal('jquery/view/ejs',
+        function(){
+            
+            var ejs = 'test/qunit/template.ejs';
+            
+            $('#reset').click(function() {
+                $("#block2_outer").html("<div id='block2' class='out'></div>");
+                
+                $("#block1").html(ejs, {message : "Html not animated"});
+                $("#block2").html(ejs, {message : "Html faded in"}, {in_ : 'fadeIn', duration : 2000});
+
+                $("#block2").prepend(ejs, {message : "Prepended with show"}, {in_ : 'show', duration : 1500});
+                $("#block2").before(ejs, {message : "Added before, sliding down"}, {in_ : 'slideDown', duration : 1000});
+                $("#block2").after(ejs, {message : "Added after, sliding down"}, {in_ : 'slideDown', duration : 1000});
+                $("#block2").append(ejs, {message : "Appended with show"}, {in_ : 'show', duration : 1500});
+            }).click()
+
+            $('#replace').click(function() {
+                $('#block1').html(ejs, {message : "Html modified using fadeOut/fadeIn"},
+                                {out : 'fadeOut', in_ : 'fadeIn', duration : 400})
+                $('#block2').children().replaceWith(ejs, {message : "Replaced using slideUp/slideDown, easing linear"},
+                                {out : 'slideUp', in_ : 'slideDown', duration : 400, easing : 'linear'})
+            })
+
+            $('#deferred').click(function() {
+                var dfrd1 = $.Deferred(),
+                    dfrd2 = $.Deferred();
+ 
+                $('#block1').html(ejs, {message :dfrd1}, {out : 'slideUp', in_ : 'slideDown', duration : 400});
+                $('#block2').after(ejs, {message :dfrd1}, {in_ : 'slideDown', duration : 600});
+                setTimeout(function() {
+                    dfrd1.resolve('I resovled after the out animation so displaying me was delayed')
+                }, 2000);
+ 
+                $('#block2').html(ejs, {message :dfrd2}, {out : 'slideUp', in_ : 'slideDown', duration : 600});
+                setTimeout(function() {
+                    dfrd2.resolve('I resovled before the out animation and was displayed immediately')
+                }, 200);
+            })
+            
+            $('#deferred_loading').click(function() {
+                var dfrd1 = $.Deferred(),
+                    dfrd2 = $.Deferred(),
+                    dfrd3 = $.Deferred(),
+                    transitionOpts = {
+                        out : 'slideUp', 
+                        in_ : 'slideDown', 
+                        duration : 400,
+                        // these can also have defaults specified on $.View
+                        loadView : '//jquery/view/test/animate/loading',
+                        loadOpts : {what : 'my first data'},
+                        loadAnim : {
+                            out : 'fadeOut', 
+                            in_ : 'fadeIn', 
+                            duration : 200
+                        }
+                    };
+                
+                $('#block1').html(ejs, {message :dfrd1}, transitionOpts);
+
+                transitionOpts.loadOpts = {what : 'my second data'};
+                $('#block2').after(ejs, {message :dfrd2}, transitionOpts);
+                
+                transitionOpts.in_ = 'slideDown';
+                transitionOpts.loadOpts = {what : 'my third data'};
+                $('#block2').replaceWith(ejs, {message :dfrd3}, transitionOpts);
+                
+                setTimeout(function() {
+                    dfrd1.resolve('Deferred 1 data')
+                    dfrd2.resolve('Deferred 2 data, added after #block2')
+                    dfrd3.resolve('Deferred 3 data, replaced #block2')
+                }, 2000);
+            })
+            
+        });
+		</script>
+	</body>
+</html>
