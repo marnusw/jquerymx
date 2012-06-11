@@ -240,7 +240,7 @@ steal("jquery").then(function( $ ) {
 
 			// add the view request to the list of deferreds
 			deferreds.push(get(view, true))
-
+            
 			// wait for the view and all deferreds to finish
 			$.when.apply($, deferreds).then(function( resolved ) {
 				// get all the resolved deferreds
@@ -459,6 +459,12 @@ steal("jquery").then(function( $ ) {
 		 */
 		hookups: {},
 		/**
+		 * @attribute loadingView
+		 * @type String
+		 * A default view script to render while waiting for deferred data or views.
+		 */
+		loadingView: null,
+		/**
 		 * @function hookup
 		 * Registers a hookup function that can be called back after the html is 
 		 * put on the page.  Typically this is handled by the template engine.  Currently
@@ -597,7 +603,7 @@ steal("jquery").then(function( $ ) {
 		// save the old jQuery helper
 		var old = $.fn[func_name];
 
-		// replace it wiht our new helper
+		// replace it with our new helper
 		$.fn[func_name] = function() {
 			
 			var args = makeArray(arguments),
@@ -605,7 +611,7 @@ steal("jquery").then(function( $ ) {
 				callback, 
 				self = this,
 				result;
-			
+
 			// if the first arg is a deferred
 			// wait until it finishes, and call
 			// modify with the result
@@ -636,11 +642,15 @@ steal("jquery").then(function( $ ) {
 					// we are going to call the old method with that string
 					args = [result];
 				} else {
-					// if there is a deferred, wait until it is done before calling modify
-					result.done(function( res ) {
-						modify.call(self, [res], old);
-					})
-					return this;
+					// if there is a deferred, render the loadingView if it's specified
+                    if (typeof $view.loadingView == 'string') {
+                        old.call(this, $view($view.loadingView));
+                    }
+                    // then wait until the deferred is done before calling modify
+                    result.done(function( res ) {
+                        modify.call(self, [res], old);
+                    })
+                    return this;
 				}
 			}
 			return noHookup[func_name] ? old.apply(this,args) : 
@@ -651,8 +661,8 @@ steal("jquery").then(function( $ ) {
 	// modifies the content of the element
 	// but also will run any hookup
 	modify = function( args, old ) {
-		var res, stub, hooks;
-
+		var res, hooks;
+        
 		//check if there are new hookups
 		for ( var hasHookups in $view.hookups ) {
 			break;
