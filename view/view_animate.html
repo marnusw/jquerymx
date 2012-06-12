@@ -1,0 +1,80 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+            "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="en">
+	<head>
+		<title>view</title>
+
+		<style>
+			body{
+				font-family: verdana;
+			}
+			pre {
+				font-family: "Courier New", Courier, monospace;
+			}
+			.out {
+				border: dashed 1px blue;
+			}
+			.temp{
+				border: dashed 1px red;
+			}
+			h2 {
+				font-size: 1em;
+				font-weight: bold;
+				color: green;
+			}
+			h3 {font-size: 0.95em;}
+		</style>
+	</head>
+	<body>
+		<h2>EJS</h2>
+        <p>Initially shown with animations</p>
+        
+        <p>
+            <button id="reset">Reset</button>
+            <button id="replace">Replace blocks</button>
+            <button id="deferred">Load deferreds</button>
+        </p>
+        
+		<div id='block1' class='out'></div>
+		<div id='block2_outer'>
+            <div id='block2' class='out'></div>
+        </div>
+
+        <script type='text/javascript' src='../../steal/steal.js'>   
+        </script>
+        <script type='text/javascript'>
+        steal('jquery/view/ejs',
+        function(){
+            
+            var ejs = 'test/qunit/template.ejs';
+
+            $('#reset').click(function() {
+                $("#block2_outer").html("<div id='block2' class='out'></div>");
+                
+                $("#block1").html(ejs, {message :"Html not animated"});
+                $("#block2").html(ejs, {message :"Html faded in"}, {in_ : 'fadeIn', duration : 2000});
+
+                $("#block2").prepend(ejs, {message :"Prepended with show"}, {in_ : 'show', duration : 1500});
+                $("#block2").before(ejs, {message :"Added before, sliding down"}, {in_ : 'slideDown', duration : 1000});
+                $("#block2").after(ejs, {message :"Added after, sliding down"}, {in_ : 'slideDown', duration : 1000});
+                $("#block2").append(ejs, {message :"Appended with show"}, {in_ : 'show', duration : 1500});
+            }).click()
+
+            $('#replace').click(function() {
+                $('#block1').html(ejs, {message :"Html modified using fadeOut/fadeIn"},
+                                {out : 'fadeOut', in_ : 'fadeIn', duration : 400})
+                $('#block2').replaceWith(ejs, {message :"Replaced using slideUp/slideDown, easing linear"},
+                                {out : 'slideUp', in_ : 'slideDown', duration : 400, easing : 'linear'})
+            })
+
+            $('#deferred').click(function() {
+                $('#block1').html(ejs, {message :"Html modified using fadeOut/fadeIn"},
+                                {out : 'fadeOut', in_ : 'fadeIn', duration : 400})
+                $('#block2').replaceWith(ejs, {message :"Replaced using slideUp/slideDown, easing linear"},
+                                {out : 'slideUp', in_ : 'slideDown', duration : 400, easing : 'linear'})
+            })
+            
+        });
+		</script>
+	</body>
+</html>

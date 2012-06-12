@@ -591,7 +591,9 @@ steal("jquery").then(function( $ ) {
 	//converts jquery functions to use views	
 	var convert, modify, isTemplate, isHTML, isDOM, getAnimation, getCallback, paramByType, hookupView,
 		// text and val cannot produce an element, so don't run hookups on them
-		noHookup = {'val':true,'text':true};
+		noHookup = {'val':true,'text':true},
+        // functions that modify the provided element rather than adding a new one
+        modifiers = {'html':true,'replaceWith':true};
 
 	convert = function( func_name ) {
 		// save the old jQuery helper
@@ -609,9 +611,14 @@ steal("jquery").then(function( $ ) {
 				result,
 				anim = args[getAnimation(args)];
 
-			// if the first arg is a deferred
-			// wait until it finishes, and call
-			// modify with the result
+            // if an 'out' animation is provided and it is the element
+            // itself that is being modified, the animation is applied
+            if (anim && anim.out && modifiers[func_name]) {
+                anim.outDfrd = this[anim.out](anim.duration, anim.easing).promise();
+            }
+
+			// if the first arg is a deferred wait until it 
+            // finishes, and call modify with the result
 			if ( isDeferred(args[0]) ) {
 				args[0].done(function( res ) {
 					modify.call(self, [res], old, anim);
@@ -666,6 +673,17 @@ steal("jquery").then(function( $ ) {
         //avoid having to check for args[0] later
         if (!args.length) {
             return old.apply(this, args);
+        }
+        
+        //check whether there is an 'out' animation in progress and
+        //and wait for it to complete before modifying the element.
+        if (anim && anim.outDfrd) {
+            var args_ = makeArray(arguments)
+            anim.outDfrd.done(function(el) {
+                args_[2] && (args_[2].outDfrd = null);
+                modify.apply(el, args_);
+            });
+            return this;
         }
         
         var el, res, hooks,
