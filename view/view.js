@@ -69,7 +69,7 @@ steal("jquery").then(function( $ ) {
 	 * </table>
 	 * 
 	 * You always have to pass a string and an object (or function) for the jQuery modifier 
-	 * to user a template.
+	 * to use a template.
 	 * 
 	 * ## Template Locations
 	 * 
@@ -122,7 +122,7 @@ steal("jquery").then(function( $ ) {
 	 * Fortunately, [steal.static.views steal.views] can build templates 
 	 * into your production files. You just have to point to the view file like: 
 	 * 
-	 *     steal.views('path/to/the/view.ejs');
+	 *     steal('path/to/the/view.ejs');
 	 *
 	 * ## Asynchronous
 	 * 
@@ -595,13 +595,15 @@ steal("jquery").then(function( $ ) {
 
 	//---- ADD jQUERY HELPERS -----
 	//converts jquery functions to use views	
-	var convert, modify, isTemplate, isHTML, isDOM, getCallback, hookupView, funcs,
+	var convert, modify, isTemplate, isHTML, isDOM, getAnimation, getLoadView, getCallback, paramByType, hookupView,
 		// text and val cannot produce an element, so don't run hookups on them
 		noHookup = {'val':true,'text':true};
 
 	convert = function( func_name ) {
 		// save the old jQuery helper
 		var old = $.fn[func_name];
+        // add the name of the function so it can be identified later
+        old.name_ = func_name;
 
 		// replace it with our new helper
 		$.fn[func_name] = function() {
@@ -610,14 +612,18 @@ steal("jquery").then(function( $ ) {
 				callbackNum, 
 				callback, 
 				self = this,
-				result;
-
+				result,
+                // Find the animation and loading options if present.
+                anim = args[getAnimation(args)],
+                loadIndex = getLoadView(args);
+                loadView = loadIndex ? args[loadIndex] : $view.loadingView;
+                
 			// if the first arg is a deferred
 			// wait until it finishes, and call
 			// modify with the result
 			if ( isDeferred(args[0]) ) {
 				args[0].done(function( res ) {
-					modify.call(self, [res], old);
+					modify.call(self, [res], old, anim);
 				})
 				return this;
 			}
@@ -628,7 +634,7 @@ steal("jquery").then(function( $ ) {
 				if ((callbackNum = getCallback(args))) {
 					callback = args[callbackNum];
 					args[callbackNum] = function( result ) {
-						modify.call(self, [result], old);
+						modify.call(self, [result], old, anim);
 						callback.call(self, result);
 					};
 					$view.apply($view, args);
@@ -648,41 +654,64 @@ steal("jquery").then(function( $ ) {
                     }
                     // then wait until the deferred is done before calling modify
                     result.done(function( res ) {
-                        modify.call(self, [res], old);
+                        modify.call(self, [res], old, anim);
                     })
                     return this;
 				}
 			}
 			return noHookup[func_name] ? old.apply(this,args) : 
-				modify.call(this, args, old);
+				modify.call(this, args, old, anim);
 		};
 	};
 
-	// modifies the content of the element
-	// but also will run any hookup
-	modify = function( args, old ) {
-		var res, hooks;
+	// Modifies the DOM by adding/changing the content of the element
+    // using the "old" jQuery method.
+	//  - Hookups will be run if there are any
+    //  - The in_ animation will be applied if specified
+    //  
+    // Params:
+    //  {Array} args The arguments passed to the converted jQuery function
+    //  {Function} old The original jQuery function used to manipulate the DOM
+    //  {Object} anim An object with animation options: {in_ (anim func name), duration, easing}
+    //  {Boolean} loading Whether the conent is a rendered loading view or the actual view.
+    //  
+    //  Returns:
+    //   The element on which the function was applied (this). If however loading was specified
+    //   the returned element is the one whose content should be replaced when loading completes.
+	modify = function( args, old, anim, loading ) {
+        //avoid having to check for args[0] later
+        if (!args.length) {
+            return old.apply(this, args);
+        }
         
-		//check if there are new hookups
-		for ( var hasHookups in $view.hookups ) {
-			break;
-		}
-
-		//if there are hookups, get jQuery object
-		if ( hasHookups && args[0] && isHTML(args[0]) ) {
+        var el, res, hooks,
+            animIn = (anim && anim.in_) ? anim.in_ : '';
+        //check if there are new hookups and retrieve them
+		if ( !noHookup[old.name_] && !$.isEmptyObject($view.hookups) ) {
 			hooks = $view.hookups;
 			$view.hookups = {};
+		}
+        //if there is a transition or hookups and we got html, get the jQuery object instead
+		if ( (animIn || hooks) && isHTML(args[0]) ) {
 			args[0] = $(args[0]);
 		}
+        
+        //modify the dom using the old function
 		res = old.apply(this, args);
+        //get the element to animate
+        el = old.name_ == 'html' ? res : args[0];
+        
+        //start the animation if provided
+        if (animIn) {
+            el.hide();
+            el[anim.in_](anim.duration, anim.easing);
+        }
 
 		//now hookup the hookups
-		if ( hooks
-		/* && args.length*/
-		) {
-			hookupView(args[0], hooks);
-		}
-		return res;
+		hooks && hookupView(args[0], hooks);
+        
+        //if loading, pass the element which should later be replaced.
+		return loading ? el : res;
 	};
 
 	// returns true or false if the args indicate a template is being used
@@ -719,9 +748,26 @@ steal("jquery").then(function( $ ) {
 		}
 	};
 
+    getAnimation = function( args ) {
+        return paramByType('object', args)
+    },
+	//returns the loadingView template (string) arg number if there is one
+    getLoadView = function( args ) {
+        return paramByType('string', args)
+    },
 	//returns the callback arg number if there is one (for async view use)
 	getCallback = function( args ) {
-		return typeof args[3] === 'function' ? 3 : typeof args[2] === 'function' && 2;
+        return paramByType('function', args)
+	};
+	//returns the parameter index of parameter 
+    //three or above with the given type or false.
+	paramByType = function( type, args ) {
+        for (var i=2; i < args.length; ++i) {
+            if (typeof args[i] === type) {
+                return i;
+            }
+        }
+        return false;
 	};
 
 	hookupView = function( els, hooks ) {
