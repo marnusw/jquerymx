@@ -646,8 +646,7 @@ steal("jquery").then(function( $ ) {
                     return this;
 				}
 			}
-			return noHookup[func_name] ? old.apply(this,args) : 
-				modify.call(this, args, old, anim);
+			return modify.call(this, args, old, anim);
 		};
 	};
 
