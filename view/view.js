@@ -459,12 +459,6 @@ steal("jquery").then(function( $ ) {
 		 */
 		hookups: {},
 		/**
-		 * @attribute loadingView
-		 * @type String
-		 * A default view script to render while waiting for deferred data or views.
-		 */
-		loadingView: null,
-		/**
 		 * @function hookup
 		 * Registers a hookup function that can be called back after the html is 
 		 * put on the page.  Typically this is handled by the template engine.  Currently
@@ -595,7 +589,7 @@ steal("jquery").then(function( $ ) {
 
 	//---- ADD jQUERY HELPERS -----
 	//converts jquery functions to use views	
-	var convert, modify, isTemplate, isHTML, isDOM, getAnimation, getLoadView, getCallback, paramByType, hookupView,
+	var convert, modify, isTemplate, isHTML, isDOM, getAnimation, getCallback, paramByType, hookupView,
 		// text and val cannot produce an element, so don't run hookups on them
 		noHookup = {'val':true,'text':true};
 
@@ -613,11 +607,8 @@ steal("jquery").then(function( $ ) {
 				callback, 
 				self = this,
 				result,
-                // Find the animation and loading options if present.
-                anim = args[getAnimation(args)],
-                loadIndex = getLoadView(args);
-                loadView = loadIndex ? args[loadIndex] : $view.loadingView;
-                
+				anim = args[getAnimation(args)];
+
 			// if the first arg is a deferred
 			// wait until it finishes, and call
 			// modify with the result
@@ -648,11 +639,7 @@ steal("jquery").then(function( $ ) {
 					// we are going to call the old method with that string
 					args = [result];
 				} else {
-					// if there is a deferred, render the loadingView if it's specified
-                    if (typeof $view.loadingView == 'string') {
-                        old.call(this, $view($view.loadingView));
-                    }
-                    // then wait until the deferred is done before calling modify
+					// if there is a deferred, wait until the deferred is done before calling modify
                     result.done(function( res ) {
                         modify.call(self, [res], old, anim);
                     })
@@ -666,19 +653,17 @@ steal("jquery").then(function( $ ) {
 
 	// Modifies the DOM by adding/changing the content of the element
     // using the "old" jQuery method.
-	//  - Hookups will be run if there are any
+	//  - Hookups will be hooked up if there are any
     //  - The in_ animation will be applied if specified
     //  
     // Params:
     //  {Array} args The arguments passed to the converted jQuery function
     //  {Function} old The original jQuery function used to manipulate the DOM
     //  {Object} anim An object with animation options: {in_ (anim func name), duration, easing}
-    //  {Boolean} loading Whether the conent is a rendered loading view or the actual view.
     //  
     //  Returns:
-    //   The element on which the function was applied (this). If however loading was specified
-    //   the returned element is the one whose content should be replaced when loading completes.
-	modify = function( args, old, anim, loading ) {
+    //   The element on which the function was applied (this). 
+	modify = function( args, old, anim ) {
         //avoid having to check for args[0] later
         if (!args.length) {
             return old.apply(this, args);
@@ -710,8 +695,7 @@ steal("jquery").then(function( $ ) {
 		//now hookup the hookups
 		hooks && hookupView(args[0], hooks);
         
-        //if loading, pass the element which should later be replaced.
-		return loading ? el : res;
+		return res;
 	};
 
 	// returns true or false if the args indicate a template is being used
@@ -748,12 +732,9 @@ steal("jquery").then(function( $ ) {
 		}
 	};
 
+	//returns the animation options (object) arg number if it exists
     getAnimation = function( args ) {
         return paramByType('object', args)
-    },
-	//returns the loadingView template (string) arg number if there is one
-    getLoadView = function( args ) {
-        return paramByType('string', args)
     },
 	//returns the callback arg number if there is one (for async view use)
 	getCallback = function( args ) {
