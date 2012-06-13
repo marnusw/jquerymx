@@ -18,11 +18,11 @@
 				border: dashed 1px red;
 			}
 			h2 {
-				font-size: 1em;
+				font-size : 1em;
 				font-weight: bold;
 				color: green;
 			}
-			h3 {font-size: 0.95em;}
+			h3 {font-size : 0.95em;}
 		</style>
 	</head>
 	<body>
@@ -32,7 +32,8 @@
         <p>
             <button id="reset">Reset</button>
             <button id="replace">Replace blocks</button>
-            <button id="deferred">Load deferreds</button>
+            <button id="deferred">Deferred</button>
+            <button id="deferred_loading">Deferred loading</button>
         </p>
         
 		<div id='block1' class='out'></div>
@@ -47,31 +48,74 @@
         function(){
             
             var ejs = 'test/qunit/template.ejs';
-
+            
             $('#reset').click(function() {
                 $("#block2_outer").html("<div id='block2' class='out'></div>");
                 
-                $("#block1").html(ejs, {message :"Html not animated"});
-                $("#block2").html(ejs, {message :"Html faded in"}, {in_ : 'fadeIn', duration : 2000});
+                $("#block1").html(ejs, {message : "Html not animated"});
+                $("#block2").html(ejs, {message : "Html faded in"}, {in_ : 'fadeIn', duration : 2000});
 
-                $("#block2").prepend(ejs, {message :"Prepended with show"}, {in_ : 'show', duration : 1500});
-                $("#block2").before(ejs, {message :"Added before, sliding down"}, {in_ : 'slideDown', duration : 1000});
-                $("#block2").after(ejs, {message :"Added after, sliding down"}, {in_ : 'slideDown', duration : 1000});
-                $("#block2").append(ejs, {message :"Appended with show"}, {in_ : 'show', duration : 1500});
+                $("#block2").prepend(ejs, {message : "Prepended with show"}, {in_ : 'show', duration : 1500});
+                $("#block2").before(ejs, {message : "Added before, sliding down"}, {in_ : 'slideDown', duration : 1000});
+                $("#block2").after(ejs, {message : "Added after, sliding down"}, {in_ : 'slideDown', duration : 1000});
+                $("#block2").append(ejs, {message : "Appended with show"}, {in_ : 'show', duration : 1500});
             }).click()
 
             $('#replace').click(function() {
-                $('#block1').html(ejs, {message :"Html modified using fadeOut/fadeIn"},
+                $('#block1').html(ejs, {message : "Html modified using fadeOut/fadeIn"},
                                 {out : 'fadeOut', in_ : 'fadeIn', duration : 400})
-                $('#block2').replaceWith(ejs, {message :"Replaced using slideUp/slideDown, easing linear"},
+                $('#block2').replaceWith(ejs, {message : "Replaced using slideUp/slideDown, easing linear"},
                                 {out : 'slideUp', in_ : 'slideDown', duration : 400, easing : 'linear'})
             })
 
             $('#deferred').click(function() {
-                $('#block1').html(ejs, {message :"Html modified using fadeOut/fadeIn"},
-                                {out : 'fadeOut', in_ : 'fadeIn', duration : 400})
-                $('#block2').replaceWith(ejs, {message :"Replaced using slideUp/slideDown, easing linear"},
-                                {out : 'slideUp', in_ : 'slideDown', duration : 400, easing : 'linear'})
+                var dfrd1 = $.Deferred(),
+                    dfrd2 = $.Deferred();
+ 
+                $('#block1').html(ejs, {message :dfrd1}, {out : 'slideUp', in_ : 'slideDown', duration : 400});
+                $('#block2').after(ejs, {message :dfrd1}, {in_ : 'slideDown', duration : 600});
+                setTimeout(function() {
+                    dfrd1.resolve('I resovled after the out animation so displaying me was delayed')
+                }, 2000);
+ 
+                $('#block2').html(ejs, {message :dfrd2}, {out : 'slideUp', in_ : 'slideDown', duration : 600});
+                setTimeout(function() {
+                    dfrd2.resolve('I resovled before the out animation and was displayed immediately')
+                }, 200);
+            })
+            
+            $('#deferred_loading').click(function() {
+                var dfrd1 = $.Deferred(),
+                    dfrd2 = $.Deferred(),
+                    dfrd3 = $.Deferred(),
+                    transitionOpts = {
+                        out : 'slideUp', 
+                        in_ : 'slideDown', 
+                        duration : 400,
+                        // these can also have defaults specified on $.View
+                        loadView : '//jquery/view/test/animate/loading',
+                        loadOpts : {what : 'my first data'},
+                        loadAnim : {
+                            out : 'fadeOut', 
+                            in_ : 'fadeIn', 
+                            duration : 200
+                        }
+                    };
+                
+                $('#block1').html(ejs, {message :dfrd1}, transitionOpts);
+
+                transitionOpts.loadOpts = {what : 'my second data'};
+                $('#block2').after(ejs, {message :dfrd2}, transitionOpts);
+                
+                transitionOpts.in_ = 'slideDown';
+                transitionOpts.loadOpts = {what : 'my third data'};
+                $('#block2').replaceWith(ejs, {message :dfrd3}, transitionOpts);
+                
+                setTimeout(function() {
+                    dfrd1.resolve('Deferred 1 data')
+                    dfrd2.resolve('Deferred 2 data, added after #block2')
+                    dfrd3.resolve('Deferred 3 data, replaced #block2')
+                }, 2000);
             })
             
         });

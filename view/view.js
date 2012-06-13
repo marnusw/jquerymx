@@ -459,6 +459,24 @@ steal("jquery").then(function( $ ) {
 		 */
 		hookups: {},
 		/**
+		 * @attribute loadView
+		 * @type String
+		 * A default view script to render while waiting for deferred data or views.
+		 */
+		loadView: '',
+		/**
+		 * @attribute loadOpts
+		 * @type Object
+		 * Default options/data to pass to the loading view script.
+		 */
+        loadOpts: {},
+		/**
+		 * @attribute loadAnim
+		 * @type Object
+		 * An animation object used when replacing a loading view with the actual rendered html.
+		 */
+		loadAnim: {},
+		/**
 		 * @function hookup
 		 * Registers a hookup function that can be called back after the html is 
 		 * put on the page.  Typically this is handled by the template engine.  Currently
@@ -589,7 +607,7 @@ steal("jquery").then(function( $ ) {
 
 	//---- ADD jQUERY HELPERS -----
 	//converts jquery functions to use views	
-	var convert, modify, isTemplate, isHTML, isDOM, getAnimation, getCallback, paramByType, hookupView,
+	var convert, loading, modify, isTemplate, isHTML, isDOM, getTransition, getCallback, paramByType, hookupView,
 		// text and val cannot produce an element, so don't run hookups on them
 		noHookup = {'val':true,'text':true},
         // functions that modify the provided element rather than adding a new one
@@ -609,30 +627,30 @@ steal("jquery").then(function( $ ) {
 				callback, 
 				self = this,
 				result,
-				anim = args[getAnimation(args)];
+				transition = args[getTransition(args)];
 
             // if an 'out' animation is provided and it is the element
             // itself that is being modified, the animation is applied
-            if (anim && anim.out && modifiers[func_name]) {
-                anim.outDfrd = this[anim.out](anim.duration, anim.easing).promise();
+            if (transition && transition.out && modifiers[func_name]) {
+                transition = $.extend(true, {}, transition, {
+                    outDfrd : this[transition.out](transition.duration, transition.easing).promise()
+                });
             }
 
-			// if the first arg is a deferred wait until it 
-            // finishes, and call modify with the result
+			// if the first arg is a deferred have the loading method 
+            // wait until it finishes, and call modify with the result
 			if ( isDeferred(args[0]) ) {
-				args[0].done(function( res ) {
-					modify.call(self, [res], old, anim);
-				})
+                loading.call(this, args, old, transition);
 				return this;
 			}
 			//check if a template
 			else if ( isTemplate(args) ) {
 
-				// if we should operate async
+				// if we should operate async (bypasses all transitions)
 				if ((callbackNum = getCallback(args))) {
 					callback = args[callbackNum];
 					args[callbackNum] = function( result ) {
-						modify.call(self, [result], old, anim);
+						modify.call(self, [result], old);
 						callback.call(self, result);
 					};
 					$view.apply($view, args);
@@ -646,16 +664,44 @@ steal("jquery").then(function( $ ) {
 					// we are going to call the old method with that string
 					args = [result];
 				} else {
-					// if there is a deferred, wait until the deferred is done before calling modify
-                    result.done(function( res ) {
-                        modify.call(self, [res], old, anim);
-                    })
+					// if there is a deferred, have the loading method wait until 
+                    // the deferred is done before calling modify
+                    loading.call(this, [result], old, transition);
                     return this;
 				}
 			}
-			return modify.call(this, args, old, anim);
+			return modify.call(this, args, old, transition);
 		};
 	};
+
+    // If a loading view has been specified use it to modify the element now and
+    // replace it with the correct content later, otherwise just let modify handle 
+    // the deferred.
+    // 
+    // Params:
+    //  {Array} args The arguments passed to the converted jQuery function
+    //  {Function} old The original jQuery function used to manipulate the DOM
+    //  {Object} transition An object with transition options
+    loading = function( args, old, transition ) {
+        var transition_ = transition || {},
+            loadView = transition_.loadView || $view.loadView,
+            old_ = old,
+            self = this,
+            el;
+            
+        if (loadView) {
+            el = modify.call(this, [$view(loadView, transition_.loadOpts || $view.loadOpts)], old_, transition_, true);
+            old_ = old.name_ == 'html' ? $.fn.html : $.fn.replaceWith;
+            //If the previous element is still being animated the element will be a deferred
+            $.when(el, args[0]).done(function(el, res) {
+                modify.call(el, [res], old_, transition_.loadAnim || $view.loadAnim);
+            });
+        } else {
+            args[0].done(function(res) {
+                modify.call(self, [res], old_, transition_);
+            });
+        }
+    },
 
 	// Modifies the DOM by adding/changing the content of the element
     // using the "old" jQuery method.
@@ -665,11 +711,13 @@ steal("jquery").then(function( $ ) {
     // Params:
     //  {Array} args The arguments passed to the converted jQuery function
     //  {Function} old The original jQuery function used to manipulate the DOM
-    //  {Object} anim An object with animation options: {in_ (anim func name), duration, easing}
+    //  {Object} transition An object with animation options
+    //  {Boolean} loading Whether the conent is a rendered loading view or the actual view.
     //  
     //  Returns:
-    //   The element on which the function was applied (this). 
-	modify = function( args, old, anim ) {
+    //   The element on which the function was applied (this). If however loading was specified
+    //   the returned element is the one whose content should be replaced when loading completes.
+	modify = function( args, old, transition, loading ) {
         //avoid having to check for args[0] later
         if (!args.length) {
             return old.apply(this, args);
@@ -677,17 +725,18 @@ steal("jquery").then(function( $ ) {
         
         //check whether there is an 'out' animation in progress and
         //and wait for it to complete before modifying the element.
-        if (anim && anim.outDfrd) {
-            var args_ = makeArray(arguments)
-            anim.outDfrd.done(function(el) {
-                args_[2] && (args_[2].outDfrd = null);
-                modify.apply(el, args_);
-            });
-            return this;
+        if (transition && transition.outDfrd) {
+            var args_ = makeArray(arguments);
+                dfrEl = transition.outDfrd.pipe(function(el) {
+                            args_[2] && (args_[2].outDfrd = null);
+                            return modify.apply(el, args_);
+                        });
+            //if we will be rendering a loading view, the deferred loading view element is returned.
+            return loading ? dfrEl : this;
         }
         
         var el, res, hooks,
-            animIn = (anim && anim.in_) ? anim.in_ : '';
+            animIn = (transition && transition.in_) ? transition.in_ : '';
         //check if there are new hookups and retrieve them
 		if ( !noHookup[old.name_] && !$.isEmptyObject($view.hookups) ) {
 			hooks = $view.hookups;
@@ -697,7 +746,7 @@ steal("jquery").then(function( $ ) {
 		if ( (animIn || hooks) && isHTML(args[0]) ) {
 			args[0] = $(args[0]);
 		}
-        
+
         //modify the dom using the old function
 		res = old.apply(this, args);
         //get the element to animate
@@ -706,13 +755,14 @@ steal("jquery").then(function( $ ) {
         //start the animation if provided
         if (animIn) {
             el.hide();
-            el[anim.in_](anim.duration, anim.easing);
+            el[transition.in_](transition.duration, transition.easing);
         }
 
 		//now hookup the hookups
 		hooks && hookupView(args[0], hooks);
         
-		return res;
+        //if loading, pass the element which should later be replaced.
+        return loading ? el : res;
 	};
 
 	// returns true or false if the args indicate a template is being used
@@ -749,8 +799,8 @@ steal("jquery").then(function( $ ) {
 		}
 	};
 
-	//returns the animation options (object) arg number if it exists
-    getAnimation = function( args ) {
+	//returns the transition options (object) arg number if it exists
+    getTransition = function( args ) {
         return paramByType('object', args)
     },
 	//returns the callback arg number if there is one (for async view use)
