@@ -753,7 +753,7 @@ steal("jquery").then(function( $ ) {
         el = old.name_ == 'html' ? res : args[0];
         
         //start the animation if provided
-        if (animIn) {
+        if (animIn && el.jquery) {
             el.hide();
             el[transition.in_](transition.duration, transition.easing);
         }
