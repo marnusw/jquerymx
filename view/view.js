@@ -607,7 +607,7 @@ steal("jquery").then(function( $ ) {
 
 	//---- ADD jQUERY HELPERS -----
 	//converts jquery functions to use views	
-	var convert, loading, modify, isTemplate, isHTML, isDOM, getTransition, getCallback, paramByType, hookupView,
+	var convert, loading, modify, isTemplate, isHTML, isDOM, getCallback, paramByType, hookupView,
 		// text and val cannot produce an element, so don't run hookups on them
 		noHookup = {'val':true,'text':true},
         // functions that modify the provided element rather than adding a new one
@@ -627,7 +627,7 @@ steal("jquery").then(function( $ ) {
 				callback, 
 				self = this,
 				result,
-				transition = args[getTransition(args)];
+				transition = args[2];
 
             // if an 'out' animation is provided and it is the element
             // itself that is being modified, the animation is applied
@@ -799,10 +799,6 @@ steal("jquery").then(function( $ ) {
 		}
 	};
 
-	//returns the transition options (object) arg number if it exists
-    getTransition = function( args ) {
-        return paramByType('object', args)
-    },
 	//returns the callback arg number if there is one (for async view use)
 	getCallback = function( args ) {
         return paramByType('function', args)
