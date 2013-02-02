@@ -818,6 +818,13 @@ steal("jquery").then(function( $ ) {
 		//remove all hookups
 		var hookupEls, len, i = 0,
 			id, func;
+        //------------------------------------------
+        // @todo Quite often when getting here els does not have a filter method. This is not good,
+        // but at least this prevents the app from breaking for now.
+        if (!els.filter) {
+            return;
+        }
+        //------------------------------------------
 		els = els.filter(function() {
 			return this.nodeType != 3; //filter out text nodes
 		})
