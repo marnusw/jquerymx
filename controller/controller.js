@@ -978,7 +978,12 @@ steal('jquery/class', 'jquery/lang/string', 'jquery/event/destroyed', function( 
 		 */
 		destroy: function() {
 			if ( this._destroyed ) {
-				throw this[STR_CONSTRUCTOR].shortName + " controller already deleted";
+//				throw this[STR_CONSTRUCTOR].shortName + " controller already deleted";
+                // Sure this shouldn't happen, but when it does (for whatever unknown reason) it
+                // it is not a critical error; therefore rather warn that throw an exception which
+                // will mostly go uncaught and break everything.
+				steal.dev.warn(this[STR_CONSTRUCTOR].shortName + " controller already deleted");
+                return;
 			}
 			var self = this,
 				fname = this[STR_CONSTRUCTOR].pluginName || this[STR_CONSTRUCTOR]._fullName,
