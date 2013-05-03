@@ -755,7 +755,8 @@ steal("jquery").then(function( $ ) {
         //start the animation if provided
         if (animIn && el.jquery) {
             el.hide();
-            el[transition.in_](transition.duration, transition.easing);
+            el[transition.in_](transition.duration, transition.easing)
+                .promise().always(function(){ this.css('display', '') });
         }
 
 		//now hookup the hookups
